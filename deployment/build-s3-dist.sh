@@ -40,23 +40,16 @@ rm -rf $build_dist_dir
 mkdir -p $build_dist_dir
 
 echo "------------------------------------------------------------------------------"
-echo "CloudFormation Template"
+echo "CloudFormation template with CDK and Constructs"
 echo "------------------------------------------------------------------------------"
-cp $template_dir/serverless-image-handler.template $template_dist_dir/
+export BUCKET_NAME=$1
+export SOLUTION_NAME=$2
+export VERSION=$3
 
-replace="s/%%BUCKET_NAME%%/$1/g"
-echo "sed -i -e $replace"
-sed -i -e $replace $template_dist_dir/serverless-image-handler.template
-
-replace="s/%%SOLUTION_NAME%%/$2/g"
-echo "sed -i -e $replace"
-sed -i -e $replace $template_dist_dir/serverless-image-handler.template
-
-replace="s/%%VERSION%%/$3/g"
-echo "sed -i -e $replace"
-sed -i -e $replace $template_dist_dir/serverless-image-handler.template
-
-cp $template_dist_dir/serverless-image-handler.template $build_dist_dir/
+cd $source_dir/constructs
+npm install
+npm run build && cdk synth --asset-metadata false --path-metadata false --json true > serverless-image-handler.json
+mv serverless-image-handler.json $template_dist_dir/serverless-image-handler.template
 
 echo "------------------------------------------------------------------------------"
 echo "Package the image-handler code"
@@ -83,6 +76,7 @@ cp dist/custom-resource.zip $build_dist_dir/custom-resource.zip
 echo "------------------------------------------------------------------------------"
 echo "Generate the demo-ui manifest document"
 echo "------------------------------------------------------------------------------"
-cd $template_dir/manifest-generator
-npm install
-node app.js --target ../../source/demo-ui --output $build_dist_dir/demo-ui-manifest.json
+cd $source_dir/demo-ui
+manifest=(`find * -type f ! -iname ".DS_Store"`)
+manifest_json=$(IFS=,;printf "%s" "${manifest[*]}")
+echo "{\"files\":[\"$manifest_json\"]}" | sed 's/,/","/g' >> $build_dist_dir/demo-ui-manifest.json
